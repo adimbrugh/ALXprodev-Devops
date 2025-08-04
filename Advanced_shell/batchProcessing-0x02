@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Create output directory
+mkdir -p Advanced_shell/pokemon_data
+cd Advanced_shell || exit 1
+
+# List of Pokémon
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+OUTPUT_DIR="pokemon_data"
+ERROR_FILE="errors.txt"
+API_URL="https://pokeapi.co/api/v2/pokemon"
+DELAY=2 # seconds between requests to avoid rate-limiting
+
+# Loop through each Pokémon
+for pokemon in "${POKEMON_LIST[@]}"; do
+  echo "Fetching data for $pokemon..."
+  FILE_PATH="$OUTPUT_DIR/${pokemon}.json"
+
+  # Make API request and capture status code
+  STATUS_CODE=$(curl -s -w "%{http_code}" -o "$FILE_PATH" "$API_URL/$pokemon")
+
+  if [ "$STATUS_CODE" -eq 200 ]; then
+    echo "Saved data to $FILE_PATH ✅"
+  else
+    echo "❌ Error fetching $pokemon (HTTP $STATUS_CODE)" | tee -a "$ERROR_FILE"
+    rm -f "$FILE_PATH"  # Remove partial file
+  fi
+
+  sleep "$DELAY" # Delay to prevent API rate limit
+done

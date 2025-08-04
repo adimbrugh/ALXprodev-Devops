@@ -1,40 +1,57 @@
 #!/bin/bash
 
-# Go to repo directory
+# Navigate to script directory
 cd "$(dirname "$0")" || exit 1
 
-# Create output directory if not exists
+# Create output directory
 OUTPUT_DIR="pokemon_data"
 mkdir -p "$OUTPUT_DIR"
 
-# List of Pokémon
+# List of Pokémon to fetch
 POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 
-# API URL base
-API_BASE_URL="https://pokeapi.co/api/v2/pokemon"
+# Base API URL
+API_URL="https://pokeapi.co/api/v2/pokemon"
 
-# Error log file
+# Error file
 ERROR_FILE="errors.txt"
-> "$ERROR_FILE"  # Clear existing error file
+> "$ERROR_FILE"  # Clear previous errors
 
-# Delay between requests
-DELAY=2
+# Retry config
+MAX_RETRIES=3
+DELAY=2  # Delay between retries and requests
 
-# Loop over Pokémon
+# Loop through each Pokémon
 for pokemon in "${POKEMON_LIST[@]}"; do
   echo "Fetching data for $pokemon..."
   OUTPUT_FILE="$OUTPUT_DIR/${pokemon}.json"
+  ATTEMPT=1
+  SUCCESS=false
 
-  # Fetch data and save status code
-  STATUS_CODE=$(curl -s -w "%{http_code}" -o "$OUTPUT_FILE" "$API_BASE_URL/$pokemon")
+  while [ "$ATTEMPT" -le "$MAX_RETRIES" ]; do
+    STATUS_CODE=$(curl -s -w "%{http_code}" -o "$OUTPUT_FILE" "$API_URL/$pokemon")
 
-  if [ "$STATUS_CODE" -eq 200 ]; then
-    echo "Saved data to $OUTPUT_FILE ✅"
-  else
-    echo "❌ Failed to fetch $pokemon (HTTP $STATUS_CODE)" | tee -a "$ERROR_FILE"
-    rm -f "$OUTPUT_FILE"
+    if [ "$STATUS_CODE" -eq 200 ]; then
+      # Check if file contains expected field (slot 3)
+      if grep -q '"slot": 3' "$OUTPUT_FILE"; then
+        echo "Saved data to $OUTPUT_FILE ✅"
+        SUCCESS=true
+        break
+      else
+        echo "⚠️ Incomplete data for $pokemon on attempt $ATTEMPT, retrying..."
+      fi
+    else
+      echo "⚠️ Failed (HTTP $STATUS_CODE) on attempt $ATTEMPT for $pokemon"
+    fi
+
+    ((ATTEMPT++))
+    sleep "$DELAY"
+  done
+
+  if [ "$SUCCESS" = false ]; then
+    echo "❌ Failed to fetch valid data for $pokemon after $MAX_RETRIES attempts" | tee -a "$ERROR_FILE"
+    rm -f "$OUTPUT_FILE"  # Clean up partial file
   fi
 
-  sleep "$DELAY"
 done
 

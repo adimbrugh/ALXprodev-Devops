@@ -1,0 +1,5 @@
+❌ Failed to fetch valid data for bulbasaur after 3 attempts
+❌ Failed to fetch valid data for ivysaur after 3 attempts
+❌ Failed to fetch valid data for venusaur after 3 attempts
+❌ Failed to fetch valid data for charmander after 3 attempts
+❌ Failed to fetch valid data for charmeleon after 3 attempts

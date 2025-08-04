@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Target directory and setup
+DATA_DIR="Advanced_shell/pokemon_data"
+mkdir -p "$DATA_DIR"
+cd Advanced_shell || exit 1
+
+# Pokémon list
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+API_URL="https://pokeapi.co/api/v2/pokemon"
+ERROR_FILE="errors_parallel.txt"
+
+# Clear previous errors if exist
+> "$ERROR_FILE"
+
+# Function to fetch a single Pokémon
+fetch_pokemon() {
+  local pokemon=$1
+  local file_path="$DATA_DIR/${pokemon}.json"
+
+  # Fetch in the background
+  curl -s -w "%{http_code}" -o "$file_path" "$API_URL/$pokemon" > status_code.txt
+  local status=$(<status_code.txt)
+  rm -f status_code.txt
+
+  if [ "$status" -eq 200 ]; then
+    echo "✅ $pokemon downloaded successfully."
+  else
+    echo "❌ Error fetching $pokemon (HTTP $status)" >> "$ERROR_FILE"
+    rm -f "$file_path"
+  fi
+}
+
+# Fetch all Pokémon in parallel
+for pokemon in "${POKEMON_LIST[@]}"; do
+  fetch_pokemon "$pokemon" &
+done
+
+# Wait for all background jobs
+wait
+
+echo -e "\nAll downloads complete."
+
+# Check for errors
+if [ -s "$ERROR_FILE" ]; then
+  echo "Some errors occurred. Check $ERROR_FILE"
+else
+  echo "All Pokémon data fetched successfully with no errors."
+fi

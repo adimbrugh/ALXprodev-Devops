@@ -1,49 +1,68 @@
 #!/bin/bash
 
-# Target directory and setup
+# Setup
 DATA_DIR="Advanced_shell/pokemon_data"
 mkdir -p "$DATA_DIR"
 cd Advanced_shell || exit 1
 
-# Pokémon list
 POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 API_URL="https://pokeapi.co/api/v2/pokemon"
 ERROR_FILE="errors_parallel.txt"
-
-# Clear previous errors if exist
 > "$ERROR_FILE"
 
-# Function to fetch a single Pokémon
+TIMEOUT=10  # seconds
+
+# Function to fetch Pokémon with timeout control
 fetch_pokemon() {
   local pokemon=$1
   local file_path="$DATA_DIR/${pokemon}.json"
 
-  # Fetch in the background
-  curl -s -w "%{http_code}" -o "$file_path" "$API_URL/$pokemon" > status_code.txt
-  local status=$(<status_code.txt)
-  rm -f status_code.txt
+  # Start curl in the background
+  (
+    curl -s -w "%{http_code}" -o "$file_path" "$API_URL/$pokemon" > "$file_path.status"
+  ) &
+  local pid=$!
+  
+  # Wait for the curl process up to TIMEOUT seconds
+  ( sleep "$TIMEOUT" && kill -0 "$pid" 2>/dev/null && kill "$pid" && echo "⏰ Timeout: $pokemon fetch killed." >> "$ERROR_FILE" ) &
+  local watchdog=$!
 
-  if [ "$status" -eq 200 ]; then
-    echo "✅ $pokemon downloaded successfully."
+  # Wait for curl to finish
+  wait "$pid"
+  curl_exit_code=$?
+
+  # Kill watchdog if curl finishes first
+  kill "$watchdog" 2>/dev/null
+
+  # Process result
+  if [ $curl_exit_code -eq 0 ]; then
+    status=$(<"$file_path.status")
+    rm -f "$file_path.status"
+    if [ "$status" -eq 200 ]; then
+      echo "✅ $pokemon downloaded successfully."
+    else
+      echo "❌ Error fetching $pokemon (HTTP $status)" >> "$ERROR_FILE"
+      rm -f "$file_path"
+    fi
   else
-    echo "❌ Error fetching $pokemon (HTTP $status)" >> "$ERROR_FILE"
+    echo "❌ curl failed for $pokemon (exit code $curl_exit_code)" >> "$ERROR_FILE"
     rm -f "$file_path"
   fi
 }
 
-# Fetch all Pokémon in parallel
+# Loop through Pokémon in parallel
 for pokemon in "${POKEMON_LIST[@]}"; do
   fetch_pokemon "$pokemon" &
 done
 
-# Wait for all background jobs
+# Wait for all fetches
 wait
 
+# Final output
 echo -e "\nAll downloads complete."
 
-# Check for errors
 if [ -s "$ERROR_FILE" ]; then
-  echo "Some errors occurred. Check $ERROR_FILE"
+  echo "⚠️  Some errors occurred. Check $ERROR_FILE"
 else
-  echo "All Pokémon data fetched successfully with no errors."
+  echo "🎉 All Pokémon data fetched successfully with no errors."
 fi

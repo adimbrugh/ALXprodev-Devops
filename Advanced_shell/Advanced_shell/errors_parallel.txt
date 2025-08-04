@@ -1,0 +1,5 @@
+❌ curl failed for ivysaur (exit code 1)
+❌ curl failed for venusaur (exit code 1)
+❌ curl failed for charmeleon (exit code 1)
+❌ curl failed for charmander (exit code 1)
+❌ curl failed for bulbasaur (exit code 1)

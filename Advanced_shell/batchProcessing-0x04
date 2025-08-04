@@ -12,30 +12,29 @@ ERROR_FILE="errors_parallel.txt"
 
 TIMEOUT=10  # seconds
 
-# Function to fetch Pokémon with timeout control
+# Function to fetch a Pokémon with timeout protection
 fetch_pokemon() {
   local pokemon=$1
   local file_path="$DATA_DIR/${pokemon}.json"
 
-  # Start curl in the background
   (
     curl -s -w "%{http_code}" -o "$file_path" "$API_URL/$pokemon" > "$file_path.status"
   ) &
   local pid=$!
-  
-  # Wait for the curl process up to TIMEOUT seconds
+
+  # Timeout watchdog
   ( sleep "$TIMEOUT" && kill -0 "$pid" 2>/dev/null && kill "$pid" && echo "⏰ Timeout: $pokemon fetch killed." >> "$ERROR_FILE" ) &
   local watchdog=$!
 
-  # Wait for curl to finish
+  # Wait for curl process
   wait "$pid"
-  curl_exit_code=$?
+  curl_status=$?
 
-  # Kill watchdog if curl finishes first
+  # Kill watchdog if not triggered
   kill "$watchdog" 2>/dev/null
 
-  # Process result
-  if [ $curl_exit_code -eq 0 ]; then
+  # Handle result
+  if [ $curl_status -eq 0 ]; then
     status=$(<"$file_path.status")
     rm -f "$file_path.status"
     if [ "$status" -eq 200 ]; then
@@ -45,24 +44,28 @@ fetch_pokemon() {
       rm -f "$file_path"
     fi
   else
-    echo "❌ curl failed for $pokemon (exit code $curl_exit_code)" >> "$ERROR_FILE"
+    echo "❌ curl failed for $pokemon (exit $curl_status)" >> "$ERROR_FILE"
     rm -f "$file_path"
   fi
 }
 
-# Loop through Pokémon in parallel
+# Start parallel jobs
 for pokemon in "${POKEMON_LIST[@]}"; do
   fetch_pokemon "$pokemon" &
 done
 
-# Wait for all fetches
+# List background jobs
+echo -e "\n🛠️ Currently running jobs:"
+jobs
+
+# Wait for all jobs to finish
 wait
 
-# Final output
-echo -e "\nAll downloads complete."
+# Summary
+echo -e "\n✅ All downloads complete."
 
 if [ -s "$ERROR_FILE" ]; then
-  echo "⚠️  Some errors occurred. Check $ERROR_FILE"
+  echo "⚠️ Some errors occurred. Check $ERROR_FILE"
 else
   echo "🎉 All Pokémon data fetched successfully with no errors."
 fi

@@ -1,31 +1,40 @@
 #!/bin/bash
 
-# Create output directory
-mkdir -p Advanced_shell/pokemon_data
-cd Advanced_shell || exit 1
+# Go to repo directory
+cd "$(dirname "$0")" || exit 1
+
+# Create output directory if not exists
+OUTPUT_DIR="pokemon_data"
+mkdir -p "$OUTPUT_DIR"
 
 # List of Pokémon
 POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
-OUTPUT_DIR="pokemon_data"
-ERROR_FILE="errors.txt"
-API_URL="https://pokeapi.co/api/v2/pokemon"
-DELAY=2 # seconds between requests to avoid rate-limiting
 
-# Loop through each Pokémon
+# API URL base
+API_BASE_URL="https://pokeapi.co/api/v2/pokemon"
+
+# Error log file
+ERROR_FILE="errors.txt"
+> "$ERROR_FILE"  # Clear existing error file
+
+# Delay between requests
+DELAY=2
+
+# Loop over Pokémon
 for pokemon in "${POKEMON_LIST[@]}"; do
   echo "Fetching data for $pokemon..."
-  FILE_PATH="$OUTPUT_DIR/${pokemon}.json"
+  OUTPUT_FILE="$OUTPUT_DIR/${pokemon}.json"
 
-  # Make API request and capture status code
-  STATUS_CODE=$(curl -s -w "%{http_code}" -o "$FILE_PATH" "$API_URL/$pokemon")
+  # Fetch data and save status code
+  STATUS_CODE=$(curl -s -w "%{http_code}" -o "$OUTPUT_FILE" "$API_BASE_URL/$pokemon")
 
   if [ "$STATUS_CODE" -eq 200 ]; then
-    echo "Saved data to $FILE_PATH ✅"
+    echo "Saved data to $OUTPUT_FILE ✅"
   else
-    echo "❌ Error fetching $pokemon (HTTP $STATUS_CODE)" | tee -a "$ERROR_FILE"
-    rm -f "$FILE_PATH"  # Remove partial file
+    echo "❌ Failed to fetch $pokemon (HTTP $STATUS_CODE)" | tee -a "$ERROR_FILE"
+    rm -f "$OUTPUT_FILE"
   fi
 
-  sleep "$DELAY" # Delay to prevent API rate limit
+  sleep "$DELAY"
 done
 

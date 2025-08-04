@@ -1,19 +1,23 @@
 #!/bin/bash
 
-# Path to the JSON file (generated from Task 0)
+# JSON file path
 JSON_FILE="Advanced_shell/data.json"
 
-# Check if file exists
+# Ensure the file exists
 if [ ! -f "$JSON_FILE" ]; then
   echo "❌ JSON file not found: $JSON_FILE"
   exit 1
 fi
 
-# Extract data using jq and format it
-NAME=$(jq -r '.name' "$JSON_FILE" | sed 's/.*/\u&/')  # Capitalize first letter
-HEIGHT=$(jq -r '.height' "$JSON_FILE" | awk '{printf "%.1f", $1/10}')  # Convert decimeters to meters
-WEIGHT=$(jq -r '.weight' "$JSON_FILE" | awk '{printf "%.0f", $1/10}')  # Convert hectograms to kilograms
-TYPE=$(jq -r '.types[0].type.name' "$JSON_FILE" | sed 's/.*/\u&/')  # Capitalize type
+# Extract values
+name=$(jq -r '.name' "$JSON_FILE" | sed 's/.*/\u&/')
+type=$(jq -r '.types[0].type.name' "$JSON_FILE" | sed 's/.*/\u&/')
+weight=$(jq -r '.weight' "$JSON_FILE")
+height=$(jq -r '.height' "$JSON_FILE")
 
-# Final formatted output
-echo "$NAME is of type $TYPE, weighs ${WEIGHT}kg, and is ${HEIGHT}m tall."
+# Format weight (hectograms to kg), height (decimeters to meters)
+formatted_weight=$(echo "$weight" | awk '{printf "%.0f", $1/10}')
+formatted_height=$(echo "$height" | awk '{printf "%.1f", $1/10}')
+
+# Final output
+echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."

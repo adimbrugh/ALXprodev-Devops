@@ -28,3 +28,4 @@ for pokemon in "${POKEMON_LIST[@]}"; do
 
   sleep "$DELAY" # Delay to prevent API rate limit
 done
+
